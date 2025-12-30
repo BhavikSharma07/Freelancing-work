@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FreeLanceFlow | Project Management Tool</title>
+    <meta name="description"
+        content="A professional dashboard for freelancers to manage projects, track statuses, and monitor payments.">
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <!-- Lucide Icons (CDN for convenience in frontend-only projects) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <span class="logo-icon">▲</span>
+                    <span class="logo-text">FreeLanceFlow</span>
+                </div>
+                <button class="mobile-close" id="mobileClose"><i data-lucide="x"></i></button>
+            </div>
+
+            <nav class="nav-menu">
+                <a href="#" class="nav-link active" data-view="dashboard">
+                    <i data-lucide="layout-dashboard"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-link" data-view="projects">
+                    <i data-lucide="briefcase"></i>
+                    <span>Projects</span>
+                </a>
+                <a href="#" class="nav-link" data-view="payments">
+                    <i data-lucide="credit-card"></i>
+                    <span>Payments</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <button id="themeToggle" class="theme-toggle">
+                    <i data-lucide="sun" class="sun-icon"></i>
+                    <i data-lucide="moon" class="moon-icon"></i>
+                    <span>Toggle Theme</span>
+                </button>
+                <div class="user-profile">
+                    <div class="avatar">BS</div>
+                    <div class="user-info">
+                        <span class="user-name">Bhavik Sharma</span>
+                        <span class="user-role">Freelancer</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <button class="menu-toggle" id="menuToggle"><i data-lucide="menu"></i></button>
+                <div class="search-bar">
+                    <i data-lucide="search"></i>
+                    <input type="text" placeholder="Search projects...">
+                </div>
+                <div class="top-bar-actions">
+                    <button class="btn btn-secondary" id="exportData">
+                        <i data-lucide="file-spreadsheet"></i>
+                        <span>Export Excel</span>
+                    </button>
+                    <button class="btn btn-primary" id="addProjectBtn">
+                        <i data-lucide="plus"></i>
+                        <span>New Project</span>
+                    </button>
+                </div>
+            </header>
+
+            <div class="view-container">
+                <!-- Dashboard View -->
+                <section id="dashboardView" class="view active">
+                    <div class="view-header">
+                        <h1>Dashboard Overview</h1>
+                        <p class="text-muted">Welcome back! Here's what's happening today.</p>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon purple"><i data-lucide="layers"></i></div>
+                            <div class="stat-content">
+                                <h3>Total Projects</h3>
+                                <div class="stat-value" id="statTotalProjects">0</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon blue"><i data-lucide="clock"></i></div>
+                            <div class="stat-content">
+                                <h3>Ongoing</h3>
+                                <div class="stat-value" id="statOngoingProjects">0</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon green"><i data-lucide="check-circle-2"></i></div>
+                            <div class="stat-content">
+                                <h3>Completed</h3>
+                                <div class="stat-value" id="statCompletedProjects">0</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon orange"><i data-lucide="dollar-sign"></i></div>
+                            <div class="stat-content">
+                                <h3>Pending Payments</h3>
+                                <div class="stat-value" id="statPendingPayments">$0</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-charts">
+                        <div class="chart-container">
+                            <h3>Project Status</h3>
+                            <div class="status-summary" id="statusSummary">
+                                <!-- JS populated -->
+                            </div>
+                        </div>
+                        <div class="recent-projects">
+                            <div class="section-header">
+                                <h3>Recently Added</h3>
+                                <a href="#" class="view-all" data-view="projects">View All</a>
+                            </div>
+                            <div class="recent-list" id="recentProjects">
+                                <!-- JS populated -->
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Projects View -->
+                <section id="projectsView" class="view">
+                    <div class="view-header">
+                        <div class="header-main">
+                            <h1>My Projects</h1>
+                            <div class="filters">
+                                <button class="filter-btn active" data-filter="all">All</button>
+                                <button class="filter-btn" data-filter="Pending">Pending</button>
+                                <button class="filter-btn" data-filter="In Progress">In Progress</button>
+                                <button class="filter-btn" data-filter="Completed">Completed</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="projects-container">
+                        <div class="projects-table-wrapper">
+                            <table class="projects-table">
+                                <thead>
+                                    <tr>
+                                        <th>Project Name</th>
+                                        <th>Client</th>
+                                        <th>Duration</th>
+                                        <th>Amount</th>
+                                        <th>Status</th>
+                                        <th>Payment</th>
+                                        <th class="actions">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="projectsTableBody">
+                                    <!-- JS populated -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <!-- Empty State -->
+                        <div id="emptyState" class="empty-state hidden">
+                            <i data-lucide="folder-open"></i>
+                            <h3>No projects found</h3>
+                            <p>Get started by blooming a new project!</p>
+                            <button class="btn btn-primary" onclick="openModal()">Add First Project</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Payments View -->
+                <section id="paymentsView" class="view">
+                    <div class="view-header">
+                        <h1>Payment Tracking</h1>
+                        <p class="text-muted">Monitor your revenue and outstanding invoices.</p>
+                    </div>
+
+                    <div class="payment-overview">
+                        <div class="payment-stat">
+                            <span class="label">Total Earned</span>
+                            <span class="value green" id="totalEarned">$0</span>
+                        </div>
+                        <div class="payment-stat">
+                            <span class="label">Total Pending</span>
+                            <span class="value orange" id="totalPendingAmount">$0</span>
+                        </div>
+                    </div>
+
+                    <div class="payments-table-wrapper">
+                        <table class="projects-table">
+                            <thead>
+                                <tr>
+                                    <th>Project</th>
+                                    <th>Client</th>
+                                    <th>Total Amount</th>
+                                    <th>Status</th>
+                                    <th>Balance</th>
+                                    <th class="actions">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="paymentsTableBody">
+                                <!-- JS populated -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <!-- Project Modal -->
+        <div class="modal-overlay" id="projectModal">
+            <div class="modal">
+                <div class="modal-header">
+                    <h2 id="modalTitle">Add New Project</h2>
+                    <button class="close-modal" id="closeModal"><i data-lucide="x"></i></button>
+                </div>
+                <form id="projectForm" class="project-form">
+                    <input type="hidden" id="projectId">
+                    <div class="form-group">
+                        <label for="projectName">Project Name</label>
+                        <input type="text" id="projectName" required placeholder="e.g. Website Redesign">
+                    </div>
+                    <div class="form-group">
+                        <label for="clientName">Client Name</label>
+                        <input type="text" id="clientName" required placeholder="e.g. Acme Corp">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="startDate">Start Date</label>
+                            <input type="date" id="startDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="endDate">End Date</label>
+                            <input type="date" id="endDate" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="projectAmount">Total Amount ($)</label>
+                            <input type="number" id="projectAmount" required min="0" step="0.01">
+                        </div>
+                        <div class="form-group">
+                            <label for="projectStatus">Status</label>
+                            <select id="projectStatus">
+                                <option value="Pending">Pending</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Completed">Completed</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="paymentStatus">Payment Status</label>
+                        <select id="paymentStatus">
+                            <option value="Unpaid">Unpaid</option>
+                            <option value="Partial">Partial</option>
+                            <option value="Paid">Paid</option>
+                        </select>
+                    </div>
+                    <div id="partialPaidContainer" class="form-group hidden">
+                        <label for="paidAmount">Amount Paid so far ($)</label>
+                        <input type="number" id="paidAmount" min="0" step="0.01">
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" id="cancelBtn">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Project</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Toast Notifications -->
+        <div id="toast" class="toast hidden"></div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+    </script>
+</body>
+
+</html>
