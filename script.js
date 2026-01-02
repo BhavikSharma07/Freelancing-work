@@ -5,10 +5,12 @@
 
 // --- State Management ---
 let state = {
-    projects: JSON.parse(localStorage.getItem('projects')) || [],
+    projects: [],
     currentView: 'dashboard',
     theme: localStorage.getItem('theme') || 'light'
 };
+
+const API_URL = 'http://localhost:5000/api/projects';
 
 // --- DOM Elements ---
 const views = document.querySelectorAll('.view');
@@ -22,11 +24,22 @@ const projectForm = document.getElementById('projectForm');
 const closeViewAll = document.querySelectorAll('.view-all');
 
 // --- Initialization ---
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     applyTheme();
-    renderAll();
+    await fetchProjects();
     setupEventListeners();
 });
+
+async function fetchProjects() {
+    try {
+        const response = await fetch(API_URL);
+        state.projects = await response.json();
+        renderAll();
+    } catch (error) {
+        console.error('Error fetching projects:', error);
+        showToast('Could not connect to the server.');
+    }
+}
 
 function setupEventListeners() {
     // Navigation
@@ -132,7 +145,7 @@ function applyTheme() {
 }
 
 // --- CRUD Operations ---
-function handleFormSubmit(e) {
+async function handleFormSubmit(e) {
     e.preventDefault();
 
     const id = document.getElementById('projectId').value;
@@ -147,30 +160,57 @@ function handleFormSubmit(e) {
         paymentStatus: document.getElementById('paymentStatus').value,
         paidAmount: document.getElementById('paymentStatus').value === 'Partial'
             ? parseFloat(document.getElementById('paidAmount').value) || 0
-            : (document.getElementById('paymentStatus').value === 'Paid' ? parseFloat(document.getElementById('projectAmount').value) : 0),
-        createdAt: new Date().toISOString()
+            : (document.getElementById('paymentStatus').value === 'Paid' ? parseFloat(document.getElementById('projectAmount').value) : 0)
     };
 
-    if (id) {
-        // Edit
-        const index = state.projects.findIndex(p => p.id === id);
-        state.projects[index] = projectData;
-        showToast('Project updated successfully!');
-    } else {
-        // Add
-        state.projects.unshift(projectData);
-        showToast('Project added successfully!');
-    }
+    try {
+        let response;
+        if (id) {
+            // Edit
+            response = await fetch(`${API_URL}/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(projectData)
+            });
+            showToast('Project updated successfully!');
+        } else {
+            // Add
+            response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(projectData)
+            });
+            showToast('Project added successfully!');
+        }
 
-    saveAndRefresh();
-    closeModal();
+        if (response.ok) {
+            await fetchProjects();
+            closeModal();
+        } else {
+            showToast('Error saving project.');
+        }
+    } catch (error) {
+        console.error('Error saving project:', error);
+        showToast('Server error.');
+    }
 }
 
-function deleteProject(id) {
+async function deleteProject(id) {
     if (confirm('Are you sure you want to delete this project?')) {
-        state.projects = state.projects.filter(p => p.id !== id);
-        saveAndRefresh();
-        showToast('Project deleted.');
+        try {
+            const response = await fetch(`${API_URL}/${id}`, {
+                method: 'DELETE'
+            });
+            if (response.ok) {
+                await fetchProjects();
+                showToast('Project deleted.');
+            } else {
+                showToast('Error deleting project.');
+            }
+        } catch (error) {
+            console.error('Error deleting project:', error);
+            showToast('Server error.');
+        }
     }
 }
 
@@ -208,7 +248,6 @@ function renderAll() {
 }
 
 function saveAndRefresh() {
-    localStorage.setItem('projects', JSON.stringify(state.projects));
     renderAll();
 }
 
@@ -345,7 +384,7 @@ function renderPayments() {
             <td><span class="badge badge-${p.paymentStatus.toLowerCase()}">${p.paymentStatus}</span></td>
             <td>${formatCurrency(balance)}</td>
             <td class="actions">
-                <button class="action-btn" onclick="editProject('${p.id}')" title="Update Payment"><i data-lucide="dollar-sign"></i></button>
+                <button class="action-btn" onclick="editProject('${p.id}')" title="Update Payment"><i data-lucide="indian-rupee"></i></button>
             </td>
         `;
         tableBody.appendChild(row);
@@ -370,7 +409,7 @@ function closeModal() {
 }
 
 function formatCurrency(amt) {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amt);
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amt);
 }
 
 function formatDate(dateStr) {
@@ -397,7 +436,7 @@ function exportToExcel() {
         return;
     }
 
-    const headers = ['Project Name', 'Client', 'Start Date', 'End Date', 'Amount ($)', 'Status', 'Payment Status', 'Paid Amount ($)'];
+    const headers = ['Project Name', 'Client', 'Start Date', 'End Date', 'Amount (₹)', 'Status', 'Payment Status', 'Paid Amount (₹)'];
     const rows = state.projects.map(p => [
         `"${p.name.replace(/"/g, '""')}"`,
         `"${p.client.replace(/"/g, '""')}"`,

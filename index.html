@@ -24,10 +24,22 @@
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="logo">
-                    <span class="logo-icon">▲</span>
+                    <img src="C:/Users/Bhavik Sharma/.gemini/antigravity/brain/a5dd1712-0ea4-4502-a854-fc0fefcd7db0/uploaded_image_1767335057294.png"
+                        alt="FreeLanceFlow Logo" class="logo-image">
                     <span class="logo-text">FreeLanceFlow</span>
                 </div>
                 <button class="mobile-close" id="mobileClose"><i data-lucide="x"></i></button>
+            </div>
+
+            <div class="user-profile relocated">
+                <div class="avatar">
+                    <img src="C:/Users/Bhavik Sharma/.gemini/antigravity/brain/a5dd1712-0ea4-4502-a854-fc0fefcd7db0/profile_placeholder_1767333638233.png"
+                        alt="Profile Photo">
+                </div>
+                <div class="user-info">
+                    <span class="user-name">Bhavik Sharma</span>
+                    <span class="user-role">Freelancer</span>
+                </div>
             </div>
 
             <nav class="nav-menu">
@@ -51,13 +63,6 @@
                     <i data-lucide="moon" class="moon-icon"></i>
                     <span>Toggle Theme</span>
                 </button>
-                <div class="user-profile">
-                    <div class="avatar">BS</div>
-                    <div class="user-info">
-                        <span class="user-name">Bhavik Sharma</span>
-                        <span class="user-role">Freelancer</span>
-                    </div>
-                </div>
             </div>
         </aside>
 
@@ -112,10 +117,10 @@
                             </div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-icon orange"><i data-lucide="dollar-sign"></i></div>
+                            <div class="stat-icon orange"><i data-lucide="indian-rupee"></i></div>
                             <div class="stat-content">
                                 <h3>Pending Payments</h3>
-                                <div class="stat-value" id="statPendingPayments">$0</div>
+                                <div class="stat-value" id="statPendingPayments">₹0</div>
                             </div>
                         </div>
                     </div>
@@ -192,11 +197,11 @@
                     <div class="payment-overview">
                         <div class="payment-stat">
                             <span class="label">Total Earned</span>
-                            <span class="value green" id="totalEarned">$0</span>
+                            <span class="value green" id="totalEarned">₹0</span>
                         </div>
                         <div class="payment-stat">
                             <span class="label">Total Pending</span>
-                            <span class="value orange" id="totalPendingAmount">$0</span>
+                            <span class="value orange" id="totalPendingAmount">₹0</span>
                         </div>
                     </div>
 
@@ -250,7 +255,7 @@
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="projectAmount">Total Amount ($)</label>
+                            <label for="projectAmount">Total Amount (₹)</label>
                             <input type="number" id="projectAmount" required min="0" step="0.01">
                         </div>
                         <div class="form-group">
@@ -271,7 +276,7 @@
                         </select>
                     </div>
                     <div id="partialPaidContainer" class="form-group hidden">
-                        <label for="paidAmount">Amount Paid so far ($)</label>
+                        <label for="paidAmount">Amount Paid so far (₹)</label>
                         <input type="number" id="paidAmount" min="0" step="0.01">
                     </div>
 
