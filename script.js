@@ -1,6 +1,6 @@
 /**
  * FreeLanceFlow - Project Management Tool
- * Core Logic & State Management
+ * Core Logic & State Management (Offline Mode via LocalStorage)
  */
 
 // --- State Management ---
@@ -9,8 +9,6 @@ let state = {
     currentView: 'dashboard',
     theme: localStorage.getItem('theme') || 'light'
 };
-
-const API_URL = 'http://localhost:5000/api/projects';
 
 // --- DOM Elements ---
 const views = document.querySelectorAll('.view');
@@ -24,21 +22,30 @@ const projectForm = document.getElementById('projectForm');
 const closeViewAll = document.querySelectorAll('.view-all');
 
 // --- Initialization ---
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', () => {
     applyTheme();
-    await fetchProjects();
+    loadProjects();
     setupEventListeners();
 });
 
-async function fetchProjects() {
+function loadProjects() {
     try {
-        const response = await fetch(API_URL);
-        state.projects = await response.json();
+        const storedProjects = localStorage.getItem('freelance_projects');
+        if (storedProjects) {
+            state.projects = JSON.parse(storedProjects);
+        } else {
+            state.projects = [];
+        }
         renderAll();
     } catch (error) {
-        console.error('Error fetching projects:', error);
-        showToast('Could not connect to the server.');
+        console.error('Error loading projects from LocalStorage:', error);
+        showToast('Error loading data.');
     }
+}
+
+function saveProjectsToStorage() {
+    localStorage.setItem('freelance_projects', JSON.stringify(state.projects));
+    renderAll();
 }
 
 function setupEventListeners() {
@@ -145,72 +152,60 @@ function applyTheme() {
 }
 
 // --- CRUD Operations ---
-async function handleFormSubmit(e) {
+function handleFormSubmit(e) {
     e.preventDefault();
 
-    const id = document.getElementById('projectId').value;
+    const id = document.getElementById('projectId').value; // String ID
+    
+    // Construct new project object
+    const paymentStatus = document.getElementById('paymentStatus').value;
+    const projectAmount = parseFloat(document.getElementById('projectAmount').value) || 0;
+    
+    let paidAmount = 0;
+    if (paymentStatus === 'Paid') {
+        paidAmount = projectAmount;
+    } else if (paymentStatus === 'Partial') {
+        paidAmount = parseFloat(document.getElementById('paidAmount').value) || 0;
+    }
+    // If Unpaid, paidAmount stays 0
+
     const projectData = {
         id: id || Date.now().toString(),
         name: document.getElementById('projectName').value,
         client: document.getElementById('clientName').value,
         startDate: document.getElementById('startDate').value,
         endDate: document.getElementById('endDate').value,
-        amount: parseFloat(document.getElementById('projectAmount').value),
+        amount: projectAmount,
         status: document.getElementById('projectStatus').value,
-        paymentStatus: document.getElementById('paymentStatus').value,
-        paidAmount: document.getElementById('paymentStatus').value === 'Partial'
-            ? parseFloat(document.getElementById('paidAmount').value) || 0
-            : (document.getElementById('paymentStatus').value === 'Paid' ? parseFloat(document.getElementById('projectAmount').value) : 0)
+        paymentStatus: paymentStatus,
+        paidAmount: paidAmount,
+        createdAt: id ? (state.projects.find(p => p.id === id)?.createdAt || new Date().toISOString()) : new Date().toISOString()
     };
 
-    try {
-        let response;
-        if (id) {
-            // Edit
-            response = await fetch(`${API_URL}/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(projectData)
-            });
+    if (id) {
+        // Edit existing
+        const index = state.projects.findIndex(p => p.id === id);
+        if (index !== -1) {
+            state.projects[index] = projectData;
             showToast('Project updated successfully!');
         } else {
-            // Add
-            response = await fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(projectData)
-            });
-            showToast('Project added successfully!');
+            showToast('Error: Project not found.');
         }
-
-        if (response.ok) {
-            await fetchProjects();
-            closeModal();
-        } else {
-            showToast('Error saving project.');
-        }
-    } catch (error) {
-        console.error('Error saving project:', error);
-        showToast('Server error.');
+    } else {
+        // Add new
+        state.projects.push(projectData);
+        showToast('Project added successfully!');
     }
+
+    saveProjectsToStorage();
+    closeModal();
 }
 
-async function deleteProject(id) {
+function deleteProject(id) {
     if (confirm('Are you sure you want to delete this project?')) {
-        try {
-            const response = await fetch(`${API_URL}/${id}`, {
-                method: 'DELETE'
-            });
-            if (response.ok) {
-                await fetchProjects();
-                showToast('Project deleted.');
-            } else {
-                showToast('Error deleting project.');
-            }
-        } catch (error) {
-            console.error('Error deleting project:', error);
-            showToast('Server error.');
-        }
+        state.projects = state.projects.filter(p => p.id !== id);
+        saveProjectsToStorage();
+        showToast('Project deleted.');
     }
 }
 
@@ -226,7 +221,7 @@ function editProject(id) {
     document.getElementById('endDate').value = project.endDate;
     document.getElementById('projectAmount').value = project.amount;
     document.getElementById('projectStatus').value = project.status;
-    document.getElementById('paymentStatus').value = project.paymentStatus;
+    document.getElementById('paymentStatus').value = project.paymentStatus; // Should trigger logic if listener was already set, but we set values manually below loops usually
 
     const partialContainer = document.getElementById('partialPaidContainer');
     if (project.paymentStatus === 'Partial') {
@@ -244,11 +239,10 @@ function renderAll() {
     renderDashboard();
     renderProjectsList();
     renderPayments();
-    lucide.createIcons();
-}
-
-function saveAndRefresh() {
-    renderAll();
+    // Re-initialize icons
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
 }
 
 function renderDashboard() {
@@ -266,11 +260,17 @@ function renderDashboard() {
     document.getElementById('statCompletedProjects').textContent = completed;
     document.getElementById('statPendingPayments').textContent = formatCurrency(pendingPaymentTotal);
 
-    // Recent list
+    // Recent list (sort by newest first)
+    // We sort a copy to not mutate state order if not desired, though usually acceptable
+    const sortedProjects = [...state.projects].sort((a, b) => {
+        // Sort by createdAt descending if available, else just reverse index roughly
+        return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+    });
+
     const recentList = document.getElementById('recentProjects');
     recentList.innerHTML = '';
 
-    state.projects.slice(0, 5).forEach(p => {
+    sortedProjects.slice(0, 5).forEach(p => {
         const div = document.createElement('div');
         div.className = 'recent-item';
         div.innerHTML = `
@@ -314,8 +314,10 @@ function renderDashboard() {
 function renderProjectsList(filter = 'all', search = '') {
     const tableBody = document.getElementById('projectsTableBody');
     const emptyState = document.getElementById('emptyState');
-
+    
+    // Sort logic can be unified, but for now just use state order (insertion order) or sorted
     let filtered = [...state.projects];
+
     if (filter !== 'all') {
         filtered = filtered.filter(p => p.status === filter);
     }
@@ -358,7 +360,10 @@ function renderProjectsList(filter = 'all', search = '') {
         `;
         tableBody.appendChild(row);
     });
-    lucide.createIcons();
+    
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
 }
 
 function renderPayments() {
@@ -392,7 +397,10 @@ function renderPayments() {
 
     totalEarnedEl.textContent = formatCurrency(totalEarned);
     totalPendingEl.textContent = formatCurrency(totalPending);
-    lucide.createIcons();
+    
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
 }
 
 // --- Helpers ---
