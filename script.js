@@ -211,6 +211,13 @@ async function handleFormSubmit(e) {
             showToast('Project added successfully!');
         }
 
+        if (projectData.paymentStatus === 'Paid') {
+            generateInvoicePDF(projectData);
+            showToast('Project updated and Invoice generated!');
+        } else {
+            showToast('Project updated successfully!');
+        }
+
         await loadProjects(); // Refresh data
         closeModal();
     } catch (error) {
@@ -366,6 +373,10 @@ function renderProjectsList(filter = 'all', search = '') {
 
     filtered.forEach(p => {
         const row = document.createElement('tr');
+        const invoiceBtn = p.paymentStatus === 'Paid'
+            ? `<button class="action-btn" onclick="state.projects.find(proj => proj.id === '${p.id}') && generateInvoicePDF(state.projects.find(proj => proj.id === '${p.id}'))" title="Download Invoice"><i data-lucide="file-down"></i></button>`
+            : '';
+
         row.innerHTML = `
             <td>
                 <div class="project-name-cell">${p.name}</div>
@@ -383,6 +394,7 @@ function renderProjectsList(filter = 'all', search = '') {
             </td>
             <td class="actions">
                 <div class="actions-cell">
+                    ${invoiceBtn}
                     <button class="action-btn" onclick="editProject('${p.id}')" title="Edit"><i data-lucide="edit-2"></i></button>
                     <button class="action-btn delete" onclick="deleteProject('${p.id}')" title="Delete"><i data-lucide="trash-2"></i></button>
                 </div>
@@ -412,6 +424,10 @@ function renderPayments() {
         totalPending += balance;
 
         const row = document.createElement('tr');
+        const invoiceBtn = p.paymentStatus === 'Paid'
+            ? `<button class="action-btn" onclick="state.projects.find(proj => proj.id === '${p.id}') && generateInvoicePDF(state.projects.find(proj => proj.id === '${p.id}'))" title="Download Invoice"><i data-lucide="file-down"></i></button>`
+            : '';
+
         row.innerHTML = `
             <td><div class="project-name-cell">${p.name}</div></td>
             <td><div class="client-name-cell">${p.client}</div></td>
@@ -419,6 +435,7 @@ function renderPayments() {
             <td><span class="badge badge-${p.paymentStatus.toLowerCase()}">${p.paymentStatus}</span></td>
             <td>${formatCurrency(balance)}</td>
             <td class="actions">
+                ${invoiceBtn}
                 <button class="action-btn" onclick="editProject('${p.id}')" title="Update Payment"><i data-lucide="indian-rupee"></i></button>
             </td>
         `;
@@ -499,4 +516,153 @@ function exportToExcel() {
     document.body.removeChild(link);
 
     showToast('Excel/CSV exported successfully!');
+}
+
+async function generateInvoicePDF(project) {
+    if (!window.jspdf) {
+        showToast('Error: jsPDF library not loaded.');
+        return;
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    // -- Helper to load image --
+    const loadImage = (url) => {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                resolve(canvas.toDataURL('image/png'));
+            };
+            img.onerror = reject;
+            img.src = url;
+        });
+    };
+
+    // -- Colors --
+    const colorPrimary = [128, 0, 128]; // Purple-ish
+    const colorText = [40, 40, 40];
+    const colorLightText = [100, 100, 100];
+    const colorLine = [200, 200, 200];
+
+    // -- Header --
+    try {
+        const logoData = await loadImage('img/1.png');
+        doc.addImage(logoData, 'PNG', 20, 20, 15, 15); // Adjust size as needed
+    } catch (err) {
+        console.error('Logo load failed', err);
+        // Fallback or just ignore
+    }
+
+    doc.setFontSize(24);
+    doc.setTextColor(...colorPrimary); // Purple
+    doc.setFont("helvetica", "bold");
+    doc.text('FreeLanceFlow', 40, 30);
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...colorText);
+    doc.text('Project Management', 40, 35);
+
+    // Graphic (Simulated dots top right)
+    doc.setTextColor(255, 182, 193); // Pinkish dots
+    for (let i = 0; i < 5; i++) {
+        for (let j = 0; j < 5; j++) {
+            doc.text('.', 170 + (i * 3), 25 + (j * 3));
+        }
+    }
+
+    doc.setFontSize(16);
+    doc.setTextColor(...colorText);
+    doc.setFont("helvetica", "normal");
+    doc.text('INVOICE', 160, 60);
+
+    // -- Content --
+    const startY = 80;
+
+    // Billed To
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text('Billed to', 20, startY);
+
+    doc.setFont("helvetica", "normal");
+    doc.text(project.client || 'Client Name', 20, startY + 7);
+    doc.text('123 Client Address', 20, startY + 12); // Pllaceholder
+    doc.text('City, State, Zip', 20, startY + 17); // Placeholder
+
+    // Invoice Info (Right aligned)
+    doc.setFont("helvetica", "bold");
+    doc.text('Invoice number', 140, startY);
+    doc.setFont("helvetica", "normal");
+    doc.text(project.id ? '#' + project.id.substring(0, 6).toUpperCase() : '#000001', 140, startY + 7);
+
+    doc.setFont("helvetica", "bold");
+    doc.text('Date of issue', 140, startY + 17);
+    doc.setFont("helvetica", "normal");
+    doc.text(formatDate(new Date()), 140, startY + 24);
+
+    // -- Table --
+    const tableTop = startY + 40;
+
+    // Line above
+    doc.setDrawColor(...colorLine);
+    doc.line(20, tableTop, 190, tableTop);
+
+    // Headers
+    doc.setFont("helvetica", "bold");
+    doc.text('Description', 25, tableTop + 8);
+    doc.text('Price', 100, tableTop + 8);
+    doc.text('Amount', 160, tableTop + 8);
+
+    // Line below headers
+    doc.line(20, tableTop + 12, 190, tableTop + 12);
+
+    // Row 1
+    doc.setFont("helvetica", "normal");
+    doc.text(`${project.name}`, 25, tableTop + 22);
+    doc.text(`Rs. ${project.amount.toLocaleString('en-IN')}`, 100, tableTop + 22);
+    doc.text(`Rs. ${project.amount.toLocaleString('en-IN')}`, 160, tableTop + 22);
+
+    // Line below content
+    doc.line(20, tableTop + 35, 190, tableTop + 35);
+
+    // -- Total --
+    doc.setFont("helvetica", "bold");
+    doc.text('Total :', 130, tableTop + 45);
+    doc.text(`Rs. ${project.amount.toLocaleString('en-IN')}`, 160, tableTop + 45);
+
+    // -- Footer --
+    const pageHeight = doc.internal.pageSize.height;
+
+    doc.setFontSize(8);
+    doc.setTextColor(...colorLightText);
+
+    // Bottom Address
+    doc.text('Come and join us 2900', 20, pageHeight - 30);
+    doc.text('Park Ave. Sacramento,', 20, pageHeight - 26);
+    doc.text('CA 95817', 20, pageHeight - 22);
+
+    // Separator
+    doc.setDrawColor(255, 69, 0); // Accent color for slashes
+    doc.line(75, pageHeight - 30, 80, pageHeight - 20);
+
+    // Contact
+    doc.text('For more info please', 85, pageHeight - 28);
+    doc.text('call 916-494-3347', 85, pageHeight - 24);
+
+    // Separator
+    doc.line(135, pageHeight - 30, 140, pageHeight - 20);
+
+    // Web
+    doc.text('itsoftware.com', 145, pageHeight - 28);
+    doc.text('info@itsoftware.com', 145, pageHeight - 24);
+
+
+    // Save
+    doc.save(`Invoice_${project.name.replace(/\s+/g, '_')}.pdf`);
 }
