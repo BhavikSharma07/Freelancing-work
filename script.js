@@ -28,25 +28,24 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
 });
 
-function loadProjects() {
+async function loadProjects() {
     try {
-        const storedProjects = localStorage.getItem('freelance_projects');
-        if (storedProjects) {
-            state.projects = JSON.parse(storedProjects);
-        } else {
-            state.projects = [];
-        }
+        const { data, error } = await supabaseClient
+            .from('projects')
+            .select('*')
+            .order('createdAt', { ascending: false }); // Optional sorting
+
+        if (error) throw error;
+
+        state.projects = data || [];
         renderAll();
     } catch (error) {
-        console.error('Error loading projects from LocalStorage:', error);
+        console.error('Error loading projects from Supabase:', error);
         showToast('Error loading data.');
     }
 }
 
-function saveProjectsToStorage() {
-    localStorage.setItem('freelance_projects', JSON.stringify(state.projects));
-    renderAll();
-}
+// function saveProjectsToStorage() { ... } // Removed in favor of direct DB calls
 
 function setupEventListeners() {
     // Navigation
@@ -152,15 +151,15 @@ function applyTheme() {
 }
 
 // --- CRUD Operations ---
-function handleFormSubmit(e) {
+async function handleFormSubmit(e) {
     e.preventDefault();
 
     const id = document.getElementById('projectId').value; // String ID
-    
+
     // Construct new project object
     const paymentStatus = document.getElementById('paymentStatus').value;
     const projectAmount = parseFloat(document.getElementById('projectAmount').value) || 0;
-    
+
     let paidAmount = 0;
     if (paymentStatus === 'Paid') {
         paidAmount = projectAmount;
@@ -170,7 +169,6 @@ function handleFormSubmit(e) {
     // If Unpaid, paidAmount stays 0
 
     const projectData = {
-        id: id || Date.now().toString(),
         name: document.getElementById('projectName').value,
         client: document.getElementById('clientName').value,
         startDate: document.getElementById('startDate').value,
@@ -179,33 +177,65 @@ function handleFormSubmit(e) {
         status: document.getElementById('projectStatus').value,
         paymentStatus: paymentStatus,
         paidAmount: paidAmount,
-        createdAt: id ? (state.projects.find(p => p.id === id)?.createdAt || new Date().toISOString()) : new Date().toISOString()
+        // createdAt: handled by default in DB or preserved. 
+        // If we want to preserve original creation time for edits, we might need to select it, 
+        // but for now let's treat it simple.
     };
 
-    if (id) {
-        // Edit existing
-        const index = state.projects.findIndex(p => p.id === id);
-        if (index !== -1) {
-            state.projects[index] = projectData;
-            showToast('Project updated successfully!');
-        } else {
-            showToast('Error: Project not found.');
-        }
-    } else {
-        // Add new
-        state.projects.push(projectData);
-        showToast('Project added successfully!');
+    // Add createdAt if new
+    if (!id) {
+        projectData.createdAt = new Date().toISOString();
     }
 
-    saveProjectsToStorage();
-    closeModal();
+    try {
+        if (id) {
+            // Edit existing
+            const { error } = await supabaseClient
+                .from('projects')
+                .update(projectData)
+                .eq('id', id);
+
+            if (error) throw error;
+            showToast('Project updated successfully!');
+        } else {
+            // Add new
+            // We can let Supabase generate ID (uuid) or keep using our logic if we defined ID column as text.
+            // Assuming Supabase ID is primary key. 
+            // If the table is auto-increment or uuid default, we don't send ID.
+
+            const { error } = await supabaseClient
+                .from('projects')
+                .insert([projectData]);
+
+            if (error) throw error;
+            showToast('Project added successfully!');
+        }
+
+        await loadProjects(); // Refresh data
+        closeModal();
+    } catch (error) {
+        console.error('Error saving project:', error);
+        showToast('Error saving project: ' + error.message);
+    }
 }
 
-function deleteProject(id) {
+async function deleteProject(id) {
     if (confirm('Are you sure you want to delete this project?')) {
-        state.projects = state.projects.filter(p => p.id !== id);
-        saveProjectsToStorage();
-        showToast('Project deleted.');
+        try {
+            const { error } = await supabaseClient
+                .from('projects')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+
+            showToast('Project deleted.');
+            await loadProjects();
+        } catch (error) {
+            console.error('Error deleting project:', error);
+            showToast('Error deleting project.');
+        }
+        // state update handled by loadProjects
     }
 }
 
@@ -314,7 +344,7 @@ function renderDashboard() {
 function renderProjectsList(filter = 'all', search = '') {
     const tableBody = document.getElementById('projectsTableBody');
     const emptyState = document.getElementById('emptyState');
-    
+
     // Sort logic can be unified, but for now just use state order (insertion order) or sorted
     let filtered = [...state.projects];
 
@@ -360,7 +390,7 @@ function renderProjectsList(filter = 'all', search = '') {
         `;
         tableBody.appendChild(row);
     });
-    
+
     if (typeof lucide !== 'undefined') {
         lucide.createIcons();
     }
@@ -397,7 +427,7 @@ function renderPayments() {
 
     totalEarnedEl.textContent = formatCurrency(totalEarned);
     totalPendingEl.textContent = formatCurrency(totalPending);
-    
+
     if (typeof lucide !== 'undefined') {
         lucide.createIcons();
     }
